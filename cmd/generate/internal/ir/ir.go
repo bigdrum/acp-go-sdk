@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/load"
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/util"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/load"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/util"
 )
 
 // MethodBinding describes which interface a method belongs to on each side.

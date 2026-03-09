@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/emit"
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/load"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/emit"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/load"
 )
 
 func main() {

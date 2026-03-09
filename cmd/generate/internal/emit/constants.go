@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/load"
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/util"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/load"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/util"
 )
 
 // WriteConstantsJen writes the version and method constants to constants_gen.go.

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/ir"
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/load"
-	"github.com/coder/acp-go-sdk/cmd/generate/internal/util"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/ir"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/load"
+	"github.com/bigdrum/acp-go-sdk/cmd/generate/internal/util"
 )
 
 // splitCamelCase splits a CamelCase string into words.

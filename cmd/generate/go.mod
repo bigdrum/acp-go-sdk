@@ -1,4 +1,4 @@
-module github.com/coder/acp-go-sdk/cmd/generate
+module github.com/bigdrum/acp-go-sdk/cmd/generate
 
 go 1.21
 
