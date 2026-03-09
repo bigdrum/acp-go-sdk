@@ -17,11 +17,6 @@ func (a *agentExample) SetSessionMode(ctx context.Context, params SetSessionMode
 	return SetSessionModeResponse{}, nil
 }
 
-// SetSessionConfigOption implements Agent.
-func (a *agentExample) SetSessionConfigOption(ctx context.Context, params SetSessionConfigOptionRequest) (SetSessionConfigOptionResponse, error) {
-	return SetSessionConfigOptionResponse{}, nil
-}
-
 func (a *agentExample) SetAgentConnection(c *AgentSideConnection) { a.conn = c }
 
 func (agentExample) Authenticate(ctx context.Context, _ AuthenticateRequest) (AuthenticateResponse, error) {
@@ -62,7 +57,7 @@ func (a *agentExample) Prompt(ctx context.Context, p PromptRequest) (PromptRespo
 	// Ask the client for permission to proceed with the change.
 	resp, _ := a.conn.RequestPermission(ctx, RequestPermissionRequest{
 		SessionId: p.SessionId,
-		ToolCall: ToolCallUpdate{
+		ToolCall: RequestPermissionToolCall{
 			ToolCallId: ToolCallId("call_1"),
 			Title:      Ptr("Modifying configuration"),
 			Kind:       Ptr(ToolKindEdit),

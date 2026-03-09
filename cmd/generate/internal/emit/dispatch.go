@@ -47,17 +47,12 @@ func WriteDispatchJen(outDir string, schema *load.Schema, meta *load.Meta) error
 				)
 			}
 			callName := ir.DispatchMethodNameForNotification(k, mi.Notif)
-			pre, recv := jAgentAssert(mi.Binding, callName, mi.Notif, "", false)
-			if pre != nil {
-				caseBody = append(caseBody, pre...)
-			}
-			caseBody = append(caseBody, jCallNotification(recv, callName)...)
+			caseBody = append(caseBody, jCallNotification("a.agent", callName)...)
 		} else if mi.Req != "" {
 			respName := strings.TrimSuffix(mi.Req, "Request") + "Response"
-			nullResp := ir.IsNullResponse(schema.Defs[respName])
 			caseBody = append(caseBody, jUnmarshalValidate(mi.Req)...)
 			methodName := strings.TrimSuffix(mi.Req, "Request")
-			pre, recv := jAgentAssert(mi.Binding, methodName, mi.Req, respName, !nullResp)
+			pre, recv := jAgentAssert(mi.Binding)
 			if pre != nil {
 				caseBody = append(caseBody, pre...)
 			}
@@ -81,7 +76,7 @@ func WriteDispatchJen(outDir string, schema *load.Schema, meta *load.Meta) error
 					If(Id("err").Op("!=").Nil()).Block(jRetToReqErr()),
 					Return(Id("resp"), Nil()),
 				)
-			} else if nullResp {
+			} else if ir.IsNullResponse(schema.Defs[respName]) {
 				caseBody = append(caseBody, jCallRequestNoResp(recv, methodName)...)
 			} else {
 				caseBody = append(caseBody, jCallRequestWithResp(recv, methodName)...)
@@ -174,22 +169,21 @@ func WriteDispatchJen(outDir string, schema *load.Schema, meta *load.Meta) error
 		body := []Code{}
 		if mi.Notif != "" {
 			body = append(body, jUnmarshalValidate(mi.Notif)...)
-			callName := ir.DispatchMethodNameForNotification(k, mi.Notif)
-			pre, recv := jClientAssert(mi.Binding, callName, mi.Notif, "", false)
+			pre, recv := jClientAssert(mi.Binding)
 			if pre != nil {
 				body = append(body, pre...)
 			}
+			callName := ir.DispatchMethodNameForNotification(k, mi.Notif)
 			body = append(body, jCallNotification(recv, callName)...)
 		} else if mi.Req != "" {
 			respName := strings.TrimSuffix(mi.Req, "Request") + "Response"
-			nullResp := ir.IsNullResponse(schema.Defs[respName])
 			body = append(body, jUnmarshalValidate(mi.Req)...)
 			methodName := strings.TrimSuffix(mi.Req, "Request")
-			pre, recv := jClientAssert(mi.Binding, methodName, mi.Req, respName, !nullResp)
+			pre, recv := jClientAssert(mi.Binding)
 			if pre != nil {
 				body = append(body, pre...)
 			}
-			if nullResp {
+			if ir.IsNullResponse(schema.Defs[respName]) {
 				body = append(body, jCallRequestNoResp(recv, methodName)...)
 			} else {
 				body = append(body, jCallRequestWithResp(recv, methodName)...)

@@ -1,16 +1,10 @@
 package acp
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"io"
-	"log/slog"
 	"slices"
-	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -26,11 +20,7 @@ type clientFuncs struct {
 	ReleaseTerminalFunc     func(context.Context, ReleaseTerminalRequest) (ReleaseTerminalResponse, error)
 	TerminalOutputFunc      func(context.Context, TerminalOutputRequest) (TerminalOutputResponse, error)
 	WaitForTerminalExitFunc func(context.Context, WaitForTerminalExitRequest) (WaitForTerminalExitResponse, error)
-
-	HandleExtensionMethodFunc func(context.Context, string, json.RawMessage) (any, error)
 }
-
-var _ ExtensionMethodHandler = (*clientFuncs)(nil)
 
 var _ Client = (*clientFuncs)(nil)
 
@@ -102,36 +92,21 @@ func (c *clientFuncs) WaitForTerminalExit(ctx context.Context, params WaitForTer
 	return WaitForTerminalExitResponse{}, nil
 }
 
-func (c clientFuncs) HandleExtensionMethod(ctx context.Context, method string, params json.RawMessage) (any, error) {
-	if c.HandleExtensionMethodFunc != nil {
-		return c.HandleExtensionMethodFunc(ctx, method, params)
-	}
-	return nil, NewMethodNotFound(method)
-}
-
 type agentFuncs struct {
-	InitializeFunc     func(context.Context, InitializeRequest) (InitializeResponse, error)
-	NewSessionFunc     func(context.Context, NewSessionRequest) (NewSessionResponse, error)
-	LoadSessionFunc    func(context.Context, LoadSessionRequest) (LoadSessionResponse, error)
-	AuthenticateFunc   func(context.Context, AuthenticateRequest) (AuthenticateResponse, error)
-	PromptFunc         func(context.Context, PromptRequest) (PromptResponse, error)
-	CancelFunc         func(context.Context, CancelNotification) error
-	SetSessionModeFunc func(ctx context.Context, params SetSessionModeRequest) (SetSessionModeResponse, error)
-	// Unstable (schema/meta.unstable.json)
-	UnstableForkSessionFunc     func(context.Context, UnstableForkSessionRequest) (UnstableForkSessionResponse, error)
-	UnstableListSessionsFunc    func(context.Context, UnstableListSessionsRequest) (UnstableListSessionsResponse, error)
-	UnstableResumeSessionFunc   func(context.Context, UnstableResumeSessionRequest) (UnstableResumeSessionResponse, error)
-	SetSessionConfigOptionFunc  func(context.Context, SetSessionConfigOptionRequest) (SetSessionConfigOptionResponse, error)
-	UnstableSetSessionModelFunc func(context.Context, UnstableSetSessionModelRequest) (UnstableSetSessionModelResponse, error)
-
-	HandleExtensionMethodFunc func(context.Context, string, json.RawMessage) (any, error)
+	InitializeFunc      func(context.Context, InitializeRequest) (InitializeResponse, error)
+	NewSessionFunc      func(context.Context, NewSessionRequest) (NewSessionResponse, error)
+	LoadSessionFunc     func(context.Context, LoadSessionRequest) (LoadSessionResponse, error)
+	AuthenticateFunc    func(context.Context, AuthenticateRequest) (AuthenticateResponse, error)
+	PromptFunc          func(context.Context, PromptRequest) (PromptResponse, error)
+	CancelFunc          func(context.Context, CancelNotification) error
+	SetSessionModeFunc  func(ctx context.Context, params SetSessionModeRequest) (SetSessionModeResponse, error)
+	SetSessionModelFunc func(ctx context.Context, params SetSessionModelRequest) (SetSessionModelResponse, error)
 }
 
 var (
-	_ Agent                  = (*agentFuncs)(nil)
-	_ AgentLoader            = (*agentFuncs)(nil)
-	_ AgentExperimental      = (*agentFuncs)(nil)
-	_ ExtensionMethodHandler = (*agentFuncs)(nil)
+	_ Agent             = (*agentFuncs)(nil)
+	_ AgentLoader       = (*agentFuncs)(nil)
+	_ AgentExperimental = (*agentFuncs)(nil)
 )
 
 func (a agentFuncs) Initialize(ctx context.Context, p InitializeRequest) (InitializeResponse, error) {
@@ -184,117 +159,12 @@ func (a agentFuncs) SetSessionMode(ctx context.Context, params SetSessionModeReq
 	return SetSessionModeResponse{}, nil
 }
 
-// UnstableForkSession implements AgentExperimental.
-func (a agentFuncs) UnstableForkSession(ctx context.Context, params UnstableForkSessionRequest) (UnstableForkSessionResponse, error) {
-	if a.UnstableForkSessionFunc != nil {
-		return a.UnstableForkSessionFunc(ctx, params)
+// SetSessionModel implements AgentExperimental.
+func (a agentFuncs) SetSessionModel(ctx context.Context, params SetSessionModelRequest) (SetSessionModelResponse, error) {
+	if a.SetSessionModelFunc != nil {
+		return a.SetSessionModelFunc(ctx, params)
 	}
-	return UnstableForkSessionResponse{}, nil
-}
-
-// UnstableListSessions implements AgentExperimental.
-func (a agentFuncs) UnstableListSessions(ctx context.Context, params UnstableListSessionsRequest) (UnstableListSessionsResponse, error) {
-	if a.UnstableListSessionsFunc != nil {
-		return a.UnstableListSessionsFunc(ctx, params)
-	}
-	return UnstableListSessionsResponse{}, nil
-}
-
-// UnstableResumeSession implements AgentExperimental.
-func (a agentFuncs) UnstableResumeSession(ctx context.Context, params UnstableResumeSessionRequest) (UnstableResumeSessionResponse, error) {
-	if a.UnstableResumeSessionFunc != nil {
-		return a.UnstableResumeSessionFunc(ctx, params)
-	}
-	return UnstableResumeSessionResponse{}, nil
-}
-
-// SetSessionConfigOption implements Agent.
-func (a agentFuncs) SetSessionConfigOption(ctx context.Context, params SetSessionConfigOptionRequest) (SetSessionConfigOptionResponse, error) {
-	if a.SetSessionConfigOptionFunc != nil {
-		return a.SetSessionConfigOptionFunc(ctx, params)
-	}
-	return SetSessionConfigOptionResponse{}, nil
-}
-
-// UnstableSetSessionModel implements AgentExperimental.
-func (a agentFuncs) UnstableSetSessionModel(ctx context.Context, params UnstableSetSessionModelRequest) (UnstableSetSessionModelResponse, error) {
-	if a.UnstableSetSessionModelFunc != nil {
-		return a.UnstableSetSessionModelFunc(ctx, params)
-	}
-	return UnstableSetSessionModelResponse{}, nil
-}
-
-func (a agentFuncs) HandleExtensionMethod(ctx context.Context, method string, params json.RawMessage) (any, error) {
-	if a.HandleExtensionMethodFunc != nil {
-		return a.HandleExtensionMethodFunc(ctx, method, params)
-	}
-	return nil, NewMethodNotFound(method)
-}
-
-type forkOnlyUnstableAgent struct {
-	called bool
-}
-
-func (a *forkOnlyUnstableAgent) Authenticate(context.Context, AuthenticateRequest) (AuthenticateResponse, error) {
-	return AuthenticateResponse{}, nil
-}
-
-func (a *forkOnlyUnstableAgent) Initialize(context.Context, InitializeRequest) (InitializeResponse, error) {
-	return InitializeResponse{}, nil
-}
-
-func (a *forkOnlyUnstableAgent) Cancel(context.Context, CancelNotification) error {
-	return nil
-}
-
-func (a *forkOnlyUnstableAgent) NewSession(context.Context, NewSessionRequest) (NewSessionResponse, error) {
-	return NewSessionResponse{}, nil
-}
-
-func (a *forkOnlyUnstableAgent) Prompt(context.Context, PromptRequest) (PromptResponse, error) {
-	return PromptResponse{}, nil
-}
-
-func (a *forkOnlyUnstableAgent) SetSessionMode(context.Context, SetSessionModeRequest) (SetSessionModeResponse, error) {
-	return SetSessionModeResponse{}, nil
-}
-
-func (a *forkOnlyUnstableAgent) SetSessionConfigOption(context.Context, SetSessionConfigOptionRequest) (SetSessionConfigOptionResponse, error) {
-	return SetSessionConfigOptionResponse{}, nil
-}
-
-func (a *forkOnlyUnstableAgent) UnstableForkSession(context.Context, UnstableForkSessionRequest) (UnstableForkSessionResponse, error) {
-	a.called = true
-	return UnstableForkSessionResponse{SessionId: "forked-session"}, nil
-}
-
-func TestAgentDispatch_AllowsPartialUnstableMethodImplementation(t *testing.T) {
-	agent := &forkOnlyUnstableAgent{}
-	conn := &AgentSideConnection{
-		agent:          agent,
-		sessionCancels: make(map[string]context.CancelFunc),
-	}
-
-	params, err := json.Marshal(UnstableForkSessionRequest{Cwd: "/tmp", SessionId: "source-session"})
-	if err != nil {
-		t.Fatalf("marshal request params: %v", err)
-	}
-
-	result, reqErr := conn.handle(context.Background(), AgentMethodSessionFork, params)
-	if reqErr != nil {
-		t.Fatalf("unexpected request error: %+v", reqErr)
-	}
-	if !agent.called {
-		t.Fatal("expected UnstableForkSession method to be invoked")
-	}
-
-	resp, ok := result.(UnstableForkSessionResponse)
-	if !ok {
-		t.Fatalf("expected UnstableForkSessionResponse, got %T", result)
-	}
-	if resp.SessionId != "forked-session" {
-		t.Fatalf("unexpected response session id: %q", resp.SessionId)
-	}
+	return SetSessionModelResponse{}, nil
 }
 
 // Test bidirectional error handling similar to typescript/acp.test.ts
@@ -482,7 +352,7 @@ func TestConnectionHandlesMessageOrdering(t *testing.T) {
 	}
 	if _, err := as.RequestPermission(context.Background(), RequestPermissionRequest{
 		SessionId: "test-session",
-		ToolCall: ToolCallUpdate{
+		ToolCall: RequestPermissionToolCall{
 			Title:      Ptr("Execute command"),
 			Kind:       ptr(ToolKindExecute),
 			Status:     ptr(ToolCallStatusPending),
@@ -593,166 +463,6 @@ func TestConnectionHandlesNotifications(t *testing.T) {
 	want1, want2 := "agent message: Hello from agent", "cancelled: test-session"
 	if !slices.Contains(got, want1) || !slices.Contains(got, want2) {
 		t.Fatalf("notification logs mismatch: %v", got)
-	}
-}
-
-func TestConnectionDoesNotCancelInboundContextBeforeDrainingNotificationsOnDisconnect(t *testing.T) {
-	const n = 25
-
-	incomingR, incomingW := io.Pipe()
-
-	var (
-		wg            sync.WaitGroup
-		canceledCount atomic.Int64
-	)
-	wg.Add(n)
-
-	c := NewConnection(func(ctx context.Context, method string, _ json.RawMessage) (any, *RequestError) {
-		defer wg.Done()
-		// Slow down processing so some notifications are handled after the receive
-		// loop observes EOF and signals disconnect.
-		time.Sleep(10 * time.Millisecond)
-		if ctx.Err() != nil {
-			canceledCount.Add(1)
-		}
-		return nil, nil
-	}, io.Discard, incomingR)
-
-	// Write notifications quickly and then close the stream to simulate a peer disconnect.
-	for i := 0; i < n; i++ {
-		if _, err := io.WriteString(incomingW, `{"jsonrpc":"2.0","method":"test/notify","params":{}}`+"\n"); err != nil {
-			t.Fatalf("write notification: %v", err)
-		}
-	}
-	_ = incomingW.Close()
-
-	select {
-	case <-c.Done():
-		// Expected: peer disconnect observed promptly.
-	case <-time.After(2 * time.Second):
-		t.Fatalf("timeout waiting for connection Done()")
-	}
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatalf("timeout waiting for notification handlers")
-	}
-
-	if got := canceledCount.Load(); got != 0 {
-		t.Fatalf("inbound handler context was canceled for %d/%d notifications", got, n)
-	}
-}
-
-func TestConnectionCancelsRequestHandlersOnDisconnectEvenWithNotificationBacklog(t *testing.T) {
-	const numNotifications = 200
-
-	incomingR, incomingW := io.Pipe()
-
-	reqDone := make(chan struct{})
-
-	c := NewConnection(func(ctx context.Context, method string, _ json.RawMessage) (any, *RequestError) {
-		switch method {
-		case "test/notify":
-			// Slow down to create a backlog of queued notifications.
-			time.Sleep(5 * time.Millisecond)
-			return nil, nil
-		case "test/request":
-			// Requests should be canceled promptly on disconnect (uses c.ctx).
-			<-ctx.Done()
-			close(reqDone)
-			return nil, NewInternalError(map[string]any{"error": "canceled"})
-		default:
-			return nil, nil
-		}
-	}, io.Discard, incomingR)
-
-	for i := 0; i < numNotifications; i++ {
-		if _, err := io.WriteString(incomingW, `{"jsonrpc":"2.0","method":"test/notify","params":{}}`+"\n"); err != nil {
-			t.Fatalf("write notification: %v", err)
-		}
-	}
-	if _, err := io.WriteString(incomingW, `{"jsonrpc":"2.0","id":1,"method":"test/request","params":{}}`+"\n"); err != nil {
-		t.Fatalf("write request: %v", err)
-	}
-	_ = incomingW.Close()
-
-	// Disconnect should be observed quickly.
-	select {
-	case <-c.Done():
-	case <-time.After(2 * time.Second):
-		t.Fatalf("timeout waiting for connection Done()")
-	}
-
-	// Even with a big notification backlog, the request handler should be canceled promptly.
-	select {
-	case <-reqDone:
-	case <-time.After(1 * time.Second):
-		t.Fatalf("timeout waiting for request handler cancellation")
-	}
-}
-
-func TestConnectionFailsFastOnNotificationQueueOverflow(t *testing.T) {
-	incomingR, incomingW := io.Pipe()
-
-	// Block the first notification handler so the queue can fill deterministically.
-	firstStarted := make(chan struct{})
-	releaseFirst := make(chan struct{})
-	var handled atomic.Int64
-
-	c := NewConnection(func(context.Context, string, json.RawMessage) (any, *RequestError) {
-		if handled.Add(1) == 1 {
-			close(firstStarted)
-			<-releaseFirst
-		}
-		return nil, nil
-	}, io.Discard, incomingR)
-
-	if _, err := io.WriteString(incomingW, `{"jsonrpc":"2.0","method":"test/notify","params":{}}`+"\n"); err != nil {
-		t.Fatalf("write first notification: %v", err)
-	}
-	select {
-	case <-firstStarted:
-	case <-time.After(1 * time.Second):
-		t.Fatalf("timeout waiting for first notification handler to start")
-	}
-
-	// Fill the buffered queue, then send one extra notification to force overflow.
-	for i := 0; i < defaultMaxQueuedNotifications+1; i++ {
-		if _, err := io.WriteString(incomingW, `{"jsonrpc":"2.0","method":"test/notify","params":{}}`+"\n"); err != nil {
-			t.Fatalf("write overflow notification %d: %v", i, err)
-		}
-	}
-
-	select {
-	case <-c.Done():
-	case <-time.After(1 * time.Second):
-		t.Fatalf("timeout waiting for connection cancellation on queue overflow")
-	}
-
-	cause := context.Cause(c.ctx)
-	if !errors.Is(cause, errNotificationQueueOverflow) {
-		t.Fatalf("expected overflow cancellation cause, got %v", cause)
-	}
-
-	// Let queued work drain and ensure waitgroup accounting remains balanced.
-	close(releaseFirst)
-
-	drained := make(chan struct{})
-	go func() {
-		c.notificationWg.Wait()
-		close(drained)
-	}()
-
-	select {
-	case <-drained:
-	case <-time.After(1 * time.Second):
-		t.Fatalf("notification waitgroup did not drain after overflow")
 	}
 }
 
@@ -921,362 +631,5 @@ func TestPromptCancellationSendsCancelAndAllowsNewSession(t *testing.T) {
 	// Connection remains usable: create another session
 	if _, err := cs.NewSession(context.Background(), NewSessionRequest{Cwd: "/", McpServers: []McpServer{}}); err != nil {
 		t.Fatalf("newSession after cancel: %v", err)
-	}
-}
-
-// TestPromptWaitsForSessionUpdatesComplete verifies that Prompt() waits for all SessionUpdate
-// notification handlers to complete before returning.  This ensures that when a server sends
-// SessionUpdate notifications followed by a PromptResponse, the client-side Prompt() call will not
-// return until all notification handlers have finished processing.  This is the expected semantic
-// contract: the prompt operation includes all its updates.
-func TestPromptWaitsForSessionUpdatesComplete(t *testing.T) {
-	const numUpdates = 10
-	const handlerDelay = 50 * time.Millisecond
-
-	var (
-		updateStarted   atomic.Int64
-		updateCompleted atomic.Int64
-	)
-
-	c2aR, c2aW := io.Pipe()
-	a2cR, a2cW := io.Pipe()
-
-	// Client side with SessionUpdate handler that tracks execution
-	c := NewClientSideConnection(&clientFuncs{
-		WriteTextFileFunc: func(context.Context, WriteTextFileRequest) (WriteTextFileResponse, error) {
-			return WriteTextFileResponse{}, nil
-		},
-		ReadTextFileFunc: func(context.Context, ReadTextFileRequest) (ReadTextFileResponse, error) {
-			return ReadTextFileResponse{Content: "test"}, nil
-		},
-		RequestPermissionFunc: func(context.Context, RequestPermissionRequest) (RequestPermissionResponse, error) {
-			return RequestPermissionResponse{Outcome: RequestPermissionOutcome{Selected: &RequestPermissionOutcomeSelected{OptionId: "allow"}}}, nil
-		},
-		SessionUpdateFunc: func(_ context.Context, n SessionNotification) error {
-			updateStarted.Add(1)
-			// Simulate processing time
-			time.Sleep(handlerDelay)
-			updateCompleted.Add(1)
-			return nil
-		},
-	}, c2aW, a2cR)
-
-	// Agent side that sends multiple SessionUpdate notifications before responding
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	var ag *AgentSideConnection
-	ag = NewAgentSideConnection(agentFuncs{
-		InitializeFunc: func(context.Context, InitializeRequest) (InitializeResponse, error) {
-			return InitializeResponse{ProtocolVersion: ProtocolVersionNumber, AgentCapabilities: AgentCapabilities{LoadSession: false}, AuthMethods: []AuthMethod{}}, nil
-		},
-		NewSessionFunc: func(context.Context, NewSessionRequest) (NewSessionResponse, error) {
-			return NewSessionResponse{SessionId: "test-session"}, nil
-		},
-		LoadSessionFunc: func(context.Context, LoadSessionRequest) (LoadSessionResponse, error) {
-			return LoadSessionResponse{}, nil
-		},
-		AuthenticateFunc: func(context.Context, AuthenticateRequest) (AuthenticateResponse, error) {
-			return AuthenticateResponse{}, nil
-		},
-		PromptFunc: func(ctx context.Context, p PromptRequest) (PromptResponse, error) {
-			defer wg.Done()
-
-			// Send multiple SessionUpdate notifications
-			for i := 0; i < numUpdates; i++ {
-				_ = ag.SessionUpdate(ctx, SessionNotification{
-					SessionId: p.SessionId,
-					Update: SessionUpdate{
-						AgentMessageChunk: &SessionUpdateAgentMessageChunk{
-							Content: TextBlock("chunk"),
-						},
-					},
-				})
-			}
-
-			// Small delay to ensure notifications are queued
-			time.Sleep(10 * time.Millisecond)
-
-			// Return response (this will unblock client's Prompt() call)
-			return PromptResponse{StopReason: "end_turn"}, nil
-		},
-		CancelFunc: func(context.Context, CancelNotification) error { return nil },
-	}, a2cW, c2aR)
-
-	if _, err := c.Initialize(context.Background(), InitializeRequest{ProtocolVersion: ProtocolVersionNumber}); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-	sess, err := c.NewSession(context.Background(), NewSessionRequest{Cwd: "/", McpServers: []McpServer{}})
-	if err != nil {
-		t.Fatalf("newSession: %v", err)
-	}
-
-	_, err = c.Prompt(context.Background(), PromptRequest{
-		SessionId: sess.SessionId,
-		Prompt:    []ContentBlock{TextBlock("test")},
-	})
-	if err != nil {
-		t.Fatalf("prompt: %v", err)
-	}
-
-	wg.Wait()
-
-	// Verify the expected behavior: at this point, Prompt() has returned, and all SessionUpdate
-	// handlers should have completed their processing.
-	// started := updateStarted.Load()    ; Currently unsused but useful for debugging
-	completed := updateCompleted.Load()
-
-	// ASSERT: when Prompt() returns, all SessionUpdate notifications that were sent
-	// before the PromptResponse must have been fully processed. This is the semantic
-	// contract: the prompt operation includes all its updates.
-	if completed != numUpdates {
-		t.Fatalf("Prompt() returned with only %d/%d SessionUpdate "+
-			"handlers completed. Expected all handlers to complete before Prompt() "+
-			"returns.", completed, numUpdates)
-	}
-}
-
-// TestRequestHandlerCanMakeNestedRequest verifies that a request handler can make nested
-// requests without deadlocking (e.g., Prompt handler calling RequestPermission).
-func TestRequestHandlerCanMakeNestedRequest(t *testing.T) {
-	c2aR, c2aW := io.Pipe()
-	a2cR, a2cW := io.Pipe()
-
-	c := NewClientSideConnection(&clientFuncs{
-		WriteTextFileFunc: func(context.Context, WriteTextFileRequest) (WriteTextFileResponse, error) {
-			return WriteTextFileResponse{}, nil
-		},
-		ReadTextFileFunc: func(context.Context, ReadTextFileRequest) (ReadTextFileResponse, error) {
-			return ReadTextFileResponse{Content: "test"}, nil
-		},
-		RequestPermissionFunc: func(context.Context, RequestPermissionRequest) (RequestPermissionResponse, error) {
-			return RequestPermissionResponse{Outcome: RequestPermissionOutcome{Selected: &RequestPermissionOutcomeSelected{OptionId: "allow"}}}, nil
-		},
-		SessionUpdateFunc: func(context.Context, SessionNotification) error {
-			return nil
-		},
-	}, c2aW, a2cR)
-
-	var ag *AgentSideConnection
-	ag = NewAgentSideConnection(agentFuncs{
-		InitializeFunc: func(context.Context, InitializeRequest) (InitializeResponse, error) {
-			return InitializeResponse{ProtocolVersion: ProtocolVersionNumber, AgentCapabilities: AgentCapabilities{LoadSession: false}, AuthMethods: []AuthMethod{}}, nil
-		},
-		NewSessionFunc: func(context.Context, NewSessionRequest) (NewSessionResponse, error) {
-			return NewSessionResponse{SessionId: "test-session"}, nil
-		},
-		LoadSessionFunc: func(context.Context, LoadSessionRequest) (LoadSessionResponse, error) {
-			return LoadSessionResponse{}, nil
-		},
-		AuthenticateFunc: func(context.Context, AuthenticateRequest) (AuthenticateResponse, error) {
-			return AuthenticateResponse{}, nil
-		},
-		PromptFunc: func(ctx context.Context, p PromptRequest) (PromptResponse, error) {
-			_, err := ag.RequestPermission(ctx, RequestPermissionRequest{
-				SessionId: p.SessionId,
-				ToolCall: ToolCallUpdate{
-					ToolCallId: "call_1",
-					Title:      Ptr("Test permission"),
-				},
-				Options: []PermissionOption{
-					{Kind: PermissionOptionKindAllowOnce, Name: "Allow", OptionId: "allow"},
-				},
-			})
-			if err != nil {
-				return PromptResponse{}, err
-			}
-			return PromptResponse{StopReason: "end_turn"}, nil
-		},
-		CancelFunc: func(context.Context, CancelNotification) error { return nil },
-	}, a2cW, c2aR)
-
-	if _, err := c.Initialize(context.Background(), InitializeRequest{ProtocolVersion: ProtocolVersionNumber}); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-	sess, err := c.NewSession(context.Background(), NewSessionRequest{Cwd: "/", McpServers: []McpServer{}})
-	if err != nil {
-		t.Fatalf("newSession: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	if _, err := c.Prompt(ctx, PromptRequest{
-		SessionId: sess.SessionId,
-		Prompt:    []ContentBlock{TextBlock("test")},
-	}); err != nil {
-		t.Fatalf("prompt failed: %v", err)
-	}
-}
-
-type extEchoParams struct {
-	Msg string `json:"msg"`
-}
-
-type extEchoResult struct {
-	Msg string `json:"msg"`
-}
-
-type agentNoExtensions struct{}
-
-func (agentNoExtensions) Authenticate(ctx context.Context, params AuthenticateRequest) (AuthenticateResponse, error) {
-	return AuthenticateResponse{}, nil
-}
-
-func (agentNoExtensions) Initialize(ctx context.Context, params InitializeRequest) (InitializeResponse, error) {
-	return InitializeResponse{}, nil
-}
-
-func (agentNoExtensions) Cancel(ctx context.Context, params CancelNotification) error { return nil }
-
-func (agentNoExtensions) NewSession(ctx context.Context, params NewSessionRequest) (NewSessionResponse, error) {
-	return NewSessionResponse{}, nil
-}
-
-func (agentNoExtensions) Prompt(ctx context.Context, params PromptRequest) (PromptResponse, error) {
-	return PromptResponse{}, nil
-}
-
-func (agentNoExtensions) SetSessionMode(ctx context.Context, params SetSessionModeRequest) (SetSessionModeResponse, error) {
-	return SetSessionModeResponse{}, nil
-}
-
-func (agentNoExtensions) SetSessionConfigOption(ctx context.Context, params SetSessionConfigOptionRequest) (SetSessionConfigOptionResponse, error) {
-	return SetSessionConfigOptionResponse{}, nil
-}
-
-func TestExtensionMethods_ClientToAgentRequest(t *testing.T) {
-	c2aR, c2aW := io.Pipe()
-	a2cR, a2cW := io.Pipe()
-
-	method := "_vendor.test/echo"
-
-	ag := NewAgentSideConnection(agentFuncs{
-		HandleExtensionMethodFunc: func(ctx context.Context, gotMethod string, params json.RawMessage) (any, error) {
-			if gotMethod != method {
-				return nil, NewInternalError(map[string]any{"expected": method, "got": gotMethod})
-			}
-			var p extEchoParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, err
-			}
-			return extEchoResult{Msg: p.Msg}, nil
-		},
-	}, a2cW, c2aR)
-
-	_ = ag
-
-	c := NewClientSideConnection(&clientFuncs{}, c2aW, a2cR)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	raw, err := c.CallExtension(ctx, method, extEchoParams{Msg: "hi"})
-	if err != nil {
-		t.Fatalf("CallExtension: %v", err)
-	}
-	var resp extEchoResult
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		t.Fatalf("unmarshal response: %v", err)
-	}
-	if resp.Msg != "hi" {
-		t.Fatalf("unexpected response: %#v", resp)
-	}
-}
-
-func TestExtensionMethods_UnknownRequest_ReturnsMethodNotFound(t *testing.T) {
-	c2aR, c2aW := io.Pipe()
-	a2cR, a2cW := io.Pipe()
-
-	NewAgentSideConnection(agentNoExtensions{}, a2cW, c2aR)
-	c := NewClientSideConnection(&clientFuncs{}, c2aW, a2cR)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	_, err := c.CallExtension(ctx, "_vendor.test/missing", extEchoParams{Msg: "hi"})
-	if err == nil {
-		t.Fatalf("expected error")
-	}
-	var re *RequestError
-	if !errors.As(err, &re) {
-		t.Fatalf("expected *RequestError, got %T: %v", err, err)
-	}
-	if re.Code != -32601 {
-		t.Fatalf("expected -32601 method not found, got %d", re.Code)
-	}
-}
-
-func TestExtensionMethods_UnknownNotification_DoesNotLog(t *testing.T) {
-	c2aR, c2aW := io.Pipe()
-	a2cR, a2cW := io.Pipe()
-
-	done := make(chan struct{})
-
-	ag := NewAgentSideConnection(agentFuncs{
-		HandleExtensionMethodFunc: func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-			close(done)
-			return nil, NewMethodNotFound(method)
-		},
-	}, a2cW, c2aR)
-
-	var logBuf bytes.Buffer
-	ag.SetLogger(slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelDebug})))
-
-	c := NewClientSideConnection(&clientFuncs{}, c2aW, a2cR)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	if err := c.NotifyExtension(ctx, "_vendor.test/notify", map[string]any{"hello": "world"}); err != nil {
-		t.Fatalf("NotifyExtension: %v", err)
-	}
-
-	select {
-	case <-done:
-		// ok
-	case <-ctx.Done():
-		t.Fatalf("timeout waiting for notification handler")
-	}
-
-	if strings.Contains(logBuf.String(), "failed to handle notification") {
-		t.Fatalf("unexpected notification error log: %s", logBuf.String())
-	}
-}
-
-func TestExtensionMethods_AgentToClientRequest(t *testing.T) {
-	c2aR, c2aW := io.Pipe()
-	a2cR, a2cW := io.Pipe()
-
-	method := "_vendor.test/echo"
-
-	_ = NewClientSideConnection(&clientFuncs{
-		HandleExtensionMethodFunc: func(ctx context.Context, gotMethod string, params json.RawMessage) (any, error) {
-			if gotMethod != method {
-				return nil, NewInternalError(map[string]any{"expected": method, "got": gotMethod})
-			}
-			var p extEchoParams
-			if err := json.Unmarshal(params, &p); err != nil {
-				return nil, err
-			}
-			return extEchoResult{Msg: p.Msg}, nil
-		},
-	}, c2aW, a2cR)
-
-	ag := NewAgentSideConnection(agentFuncs{}, a2cW, c2aR)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	raw, err := ag.CallExtension(ctx, method, extEchoParams{Msg: "hi"})
-	if err != nil {
-		t.Fatalf("CallExtension: %v", err)
-	}
-	var resp extEchoResult
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		t.Fatalf("unmarshal response: %v", err)
-	}
-	if resp.Msg != "hi" {
-		t.Fatalf("unexpected response: %#v", resp)
 	}
 }

@@ -78,45 +78,16 @@ func isBoundary(prev, curr byte) bool {
 	return (prev >= 'a' && prev <= 'z' && curr >= 'A' && curr <= 'Z') || curr == '_'
 }
 
-// ToExportedField converts a schema identifier into a Go-exported PascalCase identifier.
-//
-// The ACP schema is generally snake_case or camelCase, but some titles/descriptions can
-// contain spaces or punctuation. We defensively treat any non-alphanumeric rune as a word
-// separator.
+// ToExportedField converts snake_case or camelCase to PascalCase.
 func ToExportedField(name string) string {
-	// Treat any non-alphanumeric rune as a separator.
-	cleaned := make([]rune, 0, len(name))
-	for _, r := range name {
-		switch {
-		case r >= 'a' && r <= 'z':
-			cleaned = append(cleaned, r)
-		case r >= 'A' && r <= 'Z':
-			cleaned = append(cleaned, r)
-		case r >= '0' && r <= '9':
-			cleaned = append(cleaned, r)
-		default:
-			cleaned = append(cleaned, '_')
-		}
+	parts := strings.Split(name, "_")
+	if len(parts) == 1 {
+		parts = SplitCamel(name)
 	}
-
-	// Split on separators, then split camelCase chunks within each token.
-	var tokens []string
-	for _, part := range strings.Split(string(cleaned), "_") {
-		if part == "" {
-			continue
-		}
-		for _, chunk := range SplitCamel(part) {
-			if chunk == "" {
-				continue
-			}
-			tokens = append(tokens, chunk)
-		}
+	for i := range parts {
+		parts[i] = TitleWord(parts[i])
 	}
-
-	for i := range tokens {
-		tokens[i] = TitleWord(tokens[i])
-	}
-	return strings.Join(tokens, "")
+	return strings.Join(parts, "")
 }
 
 // ToEnumConst builds a const identifier like <TypeName><Value>.

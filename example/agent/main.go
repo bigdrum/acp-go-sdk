@@ -41,29 +41,9 @@ func (a *exampleAgent) SetSessionMode(ctx context.Context, params acp.SetSession
 	return acp.SetSessionModeResponse{}, nil
 }
 
-// UnstableForkSession implements acp.AgentExperimental.
-func (a *exampleAgent) UnstableForkSession(ctx context.Context, params acp.UnstableForkSessionRequest) (acp.UnstableForkSessionResponse, error) {
-	return acp.UnstableForkSessionResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionFork)
-}
-
-// UnstableListSessions implements acp.AgentExperimental.
-func (a *exampleAgent) UnstableListSessions(ctx context.Context, params acp.UnstableListSessionsRequest) (acp.UnstableListSessionsResponse, error) {
-	return acp.UnstableListSessionsResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionList)
-}
-
-// UnstableResumeSession implements acp.AgentExperimental.
-func (a *exampleAgent) UnstableResumeSession(ctx context.Context, params acp.UnstableResumeSessionRequest) (acp.UnstableResumeSessionResponse, error) {
-	return acp.UnstableResumeSessionResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionResume)
-}
-
-// SetSessionConfigOption implements acp.Agent.
-func (a *exampleAgent) SetSessionConfigOption(ctx context.Context, params acp.SetSessionConfigOptionRequest) (acp.SetSessionConfigOptionResponse, error) {
-	return acp.SetSessionConfigOptionResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionSetConfigOption)
-}
-
-// UnstableSetSessionModel implements acp.AgentExperimental.
-func (a *exampleAgent) UnstableSetSessionModel(ctx context.Context, params acp.UnstableSetSessionModelRequest) (acp.UnstableSetSessionModelResponse, error) {
-	return acp.UnstableSetSessionModelResponse{}, acp.NewMethodNotFound(acp.AgentMethodSessionSetModel)
+// SetSessionModel implements acp.AgentExperimental.
+func (a *exampleAgent) SetSessionModel(ctx context.Context, params acp.SetSessionModelRequest) (acp.SetSessionModelResponse, error) {
+	return acp.SetSessionModelResponse{}, nil
 }
 
 // Implement acp.AgentConnAware to receive the connection after construction.
@@ -225,7 +205,7 @@ func (a *exampleAgent) simulateTurn(ctx context.Context, sid string) error {
 	// request permission for sensitive operation
 	permResp, err := a.conn.RequestPermission(ctx, acp.RequestPermissionRequest{
 		SessionId: acp.SessionId(sid),
-		ToolCall: acp.ToolCallUpdate{
+		ToolCall: acp.RequestPermissionToolCall{
 			ToolCallId: acp.ToolCallId("call_2"),
 			Title:      acp.Ptr("Modifying critical configuration file"),
 			Kind:       acp.Ptr(acp.ToolKindEdit),

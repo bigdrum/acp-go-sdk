@@ -45,20 +45,7 @@ func key(side, method string) string { return side + "|" + method }
 
 // PrimaryType mirrors logic from generator: find primary type string from a Definition.
 func PrimaryType(d *load.Definition) string {
-	if d == nil {
-		return ""
-	}
-	if d.Type == nil {
-		// In newer schemas, properties are sometimes wrapped in allOf (commonly around a
-		// single $ref). We can't fully resolve $ref here, but we can still detect inline types.
-		for _, e := range d.AllOf {
-			if e == nil {
-				continue
-			}
-			if t := PrimaryType(e); t != "" {
-				return t
-			}
-		}
+	if d == nil || d.Type == nil {
 		return ""
 	}
 	switch v := d.Type.(type) {
@@ -221,13 +208,6 @@ func isUnstableMethod(schema *load.Schema, mi *MethodInfo) bool {
 	if mi == nil {
 		return false
 	}
-
-	// Any method whose public Go types are emitted with an "Unstable" prefix is
-	// considered unstable, regardless of description text.
-	if strings.HasPrefix(mi.Req, "Unstable") || strings.HasPrefix(mi.Resp, "Unstable") || strings.HasPrefix(mi.Notif, "Unstable") {
-		return true
-	}
-
 	has := func(name string) bool {
 		if name == "" {
 			return false
